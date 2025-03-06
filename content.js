@@ -6,13 +6,18 @@ async function getRatedComments(comments) {
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ comments: comments.slice(0, 10) }),
+                body: JSON.stringify({ comments: comments.slice(0, 10) }), // Send only top 10
             }
         );
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
         const data = await response.json();
         return data;
     } catch (error) {
-        console.error("Error fetching ratings", error);
+        console.error("Error fetching ratings:", error);
         return null;
     }
 }
@@ -24,7 +29,7 @@ function getTopComments() {
         )
     )
         .slice(0, 10)
-        .map((comment) => comment.innerText.trim()) // Extract text properly
+        .map((comment) => comment.innerText.trim()); // Extract text properly
 }
 
 async function injectSentimentScores() {
@@ -39,14 +44,17 @@ async function injectSentimentScores() {
         return;
     }
 
-    const comments = commentElements.map((el) => el.innerText.trim()).filter((text) => text.length > 0);
+    const comments = commentElements
+        .map((el) => el.innerText.trim())
+        .filter((text) => text.length > 0);
     console.log("Extracted comments:", comments);
 
     if (!comments.length) return;
 
-    // Send to backend for analysis (replace placeholder)
-    // const ratedComments = await getRatedComments(comments);
-    const ratedComments = comments.map(() => ({ quality: 3, difficulty: 3 })); // Placeholder for testing
+    // Fetch rated comments from backend
+    const ratedComments = await getRatedComments(comments);
+
+    if (!ratedComments) return;
 
     commentElements.forEach((commentElement, index) => {
         if (!commentElement.dataset.sentimentAdded && ratedComments[index]) {
@@ -66,7 +74,6 @@ async function injectSentimentScores() {
         }
     });
 }
-
 
 // Wait for comments to be available
 function waitForCommentsToLoad() {
