@@ -115,9 +115,20 @@ async function injectSentimentScores() {
             const { quality, difficulty } = ratedComments[index];
 
             const sentiment = document.createElement("span");
-            sentiment.textContent = ` [Quality: ${quality}, Difficulty: ${difficulty}]`;
-            sentiment.style.color = "gold";
-            sentiment.style.marginLeft = "8px";
+            sentiment.innerHTML = ` 
+    <span style="
+        background-color: rgba(255, 215, 0, 0.2); 
+        color: gold; 
+        padding: 3px 8px; 
+        margin-left: 10px; 
+        border-radius: 12px; 
+        font-size: 12px; 
+        font-weight: bold; 
+        display: inline-block;
+    ">
+        ⭐ Quality: ${quality} | 🎯 Difficulty: ${difficulty}
+    </span>
+`;
 
             commentElement.appendChild(sentiment);
             commentElement.dataset.sentimentAdded = "true";
