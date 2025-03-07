@@ -88,10 +88,10 @@ function injectSummaryBox(averageQuality, averageDifficulty) {
         existingBox = document.createElement("div");
         existingBox.id = "sentiment-summary-box";
         existingBox.style = `
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
+            background-color: rgba(255, 215, 0, 0.2); 
+            color: gold; 
             padding: 10px;
-            border-radius: 8px;
+            border-radius: 12px;
             font-size: 14px;
             font-weight: bold;
             margin-bottom: 10px;
@@ -107,9 +107,9 @@ function injectSummaryBox(averageQuality, averageDifficulty) {
 
     existingBox.innerHTML = `📊 <strong>Average Quality:</strong> ${averageQuality.toFixed(
         2
-    )} | 🎯 <strong>Average Difficulty:</strong> ${averageDifficulty.toFixed(
+    )}/5 | 🎯 <strong>Average Difficulty:</strong> ${averageDifficulty.toFixed(
         2
-    )}`;
+    )}/5`;
 }
 
 // **Modified Inject Sentiment Scores**
