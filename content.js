@@ -80,7 +80,39 @@ function getAllComments() {
         .filter((text) => text.length > 0);
 }
 
-// **Inject Sentiment Scores**
+// **Inject Summary Above Comments**
+function injectSummaryBox(averageQuality, averageDifficulty) {
+    let existingBox = document.getElementById("sentiment-summary-box");
+
+    if (!existingBox) {
+        existingBox = document.createElement("div");
+        existingBox.id = "sentiment-summary-box";
+        existingBox.style = `
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+            width: fit-content;
+        `;
+
+        const commentsContainer = document.querySelector("#comments");
+        if (commentsContainer) {
+            commentsContainer.prepend(existingBox);
+        }
+    }
+
+    existingBox.innerHTML = `📊 <strong>Average Quality:</strong> ${averageQuality.toFixed(
+        2
+    )} | 🎯 <strong>Average Difficulty:</strong> ${averageDifficulty.toFixed(
+        2
+    )}`;
+}
+
+// **Modified Inject Sentiment Scores**
 async function injectSentimentScores() {
     console.log("⏳ Loading comments...");
     await loadMoreComments(100);
@@ -101,34 +133,49 @@ async function injectSentimentScores() {
 
     if (!comments.length) return;
 
-    // ✅ Fix: Send all 100 comments to backend
     const ratedComments = await getRatedComments(comments);
     console.log("ratedComments", ratedComments);
+
     if (!ratedComments || ratedComments.length !== comments.length) {
         console.error("❌ Backend response size mismatch.");
         return;
     }
 
-    // ✅ Fix: Ensure ratings are correctly matched to comments
+    // **Calculate Averages**
+    let totalQuality = 0;
+    let totalDifficulty = 0;
+
+    ratedComments.forEach(({ quality, difficulty }) => {
+        totalQuality += quality;
+        totalDifficulty += difficulty;
+    });
+
+    let averageQuality = totalQuality / ratedComments.length;
+    let averageDifficulty = totalDifficulty / ratedComments.length;
+
+    // **Inject Summary Box**
+    injectSummaryBox(averageQuality, averageDifficulty);
+
+    // **Inject Ratings into Comments**
     commentElements.forEach((commentElement, index) => {
         if (!commentElement.dataset.sentimentAdded && ratedComments[index]) {
             const { quality, difficulty } = ratedComments[index];
 
             const sentiment = document.createElement("span");
             sentiment.innerHTML = ` 
-    <span style="
-        background-color: rgba(255, 215, 0, 0.2); 
-        color: gold; 
-        padding: 3px 8px; 
-        margin-left: 10px; 
-        border-radius: 12px; 
-        font-size: 12px; 
-        font-weight: bold; 
-        display: inline-block;
-    ">
-        ⭐ Quality: ${quality} | 🎯 Difficulty: ${difficulty}
-    </span>
-`;
+                <span style="
+                    background-color: rgba(255, 215, 0, 0.2); 
+                    color: gold; 
+                    padding: 3px 8px; 
+                    margin-left: 10px; 
+                    border-radius: 12px; 
+                    font-size: 12px; 
+                    font-weight: bold; 
+                    display: inline-block;
+                ">
+                    ⭐ Quality: ${quality} | 🎯 Difficulty: ${difficulty}
+                </span>
+            `;
 
             commentElement.appendChild(sentiment);
             commentElement.dataset.sentimentAdded = "true";
