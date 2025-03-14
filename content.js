@@ -87,8 +87,17 @@ function createOverlayModal() {
 
 // **Remove Overlay & Modal**
 function removeOverlayModal() {
-    const overlay = document.getElementById("analyze-overlay");
-    if (overlay) overlay.remove();
+    console.log("🔼 Scrolling back to top...");
+
+    // Scroll to the top smoothly
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    // Wait a short delay before removing the modal (to allow scrolling to finish)
+    setTimeout(() => {
+        const overlay = document.getElementById("analyze-overlay");
+        if (overlay) overlay.remove();
+        console.log("✅ Modal removed.");
+    }, 1000); // Adjust delay as needed
 }
 
 // **Cancel Analysis**
