@@ -22,7 +22,84 @@ async function getRatedComments(comments) {
     }
 }
 
-// **Scroll to Load More Comments**
+// **Create and Insert the Overlay & Modal**
+function createOverlayModal() {
+    if (document.getElementById("analyze-overlay")) return; // Prevent duplicates
+
+    // **Overlay**
+    const overlay = document.createElement("div");
+    overlay.id = "analyze-overlay";
+    overlay.style = `
+        position: fixed;
+        top: 0; left: 0;
+        width: 100vw; height: 100vh;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 9999;
+    `;
+
+    // **Modal**
+    const modal = document.createElement("div");
+    modal.id = "analyze-modal";
+    modal.style = `
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+        min-width: 300px;
+    `;
+    modal.innerHTML = `
+        <h3>Analyzing Comments...</h3>
+        <div id="analyze-progress-bar" style="
+            width: 100%; 
+            height: 10px; 
+            background: #ddd; 
+            border-radius: 5px; 
+            overflow: hidden; 
+            margin-top: 10px;">
+            <div id="progress-bar-fill" style="
+                width: 0%; 
+                height: 100%; 
+                background: gold; 
+                transition: width 0.2s;">
+            </div>
+        </div>
+        <p id="progress-text">0/100 comments analyzed</p>
+        <button id="cancel-analysis" style="
+            background: #FFD700; 
+            color: black; 
+            padding: 8px 12px; 
+            margin-top: 15px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer;
+        ">Cancel</button>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    // **Cancel Button Event**
+    document.getElementById("cancel-analysis").addEventListener("click", () => {
+        cancelAnalysis();
+    });
+}
+
+// **Remove Overlay & Modal**
+function removeOverlayModal() {
+    const overlay = document.getElementById("analyze-overlay");
+    if (overlay) overlay.remove();
+}
+
+// **Cancel Analysis**
+let isAnalysisCanceled = false;
+function cancelAnalysis() {
+    isAnalysisCanceled = true;
+    removeOverlayModal();
+    console.log("❌ Analysis canceled by user.");
+}
+
+// **Scroll to Load More Comments (with Cancel Support)**
 async function loadMoreComments(targetCount = 100, scrollInterval = 2000) {
     let previousCount = 0;
     let retries = 0;
@@ -30,32 +107,36 @@ async function loadMoreComments(targetCount = 100, scrollInterval = 2000) {
 
     return new Promise((resolve) => {
         const interval = setInterval(() => {
-            const comments = document.querySelectorAll(
-                "#comments #sections #contents ytd-comment-thread-renderer #comment #body #main #expander #content #content-text"
-            );
+            if (isAnalysisCanceled) {
+                clearInterval(interval);
+                resolve();
+                return;
+            }
 
+            const comments = document.querySelectorAll("#content-text");
             console.log(`🔄 Loaded comments: ${comments.length}`);
+
+            // **Update Progress (90%)**
+            let progress = Math.min((comments.length / targetCount) * 90, 90);
+            document.getElementById(
+                "progress-bar-fill"
+            ).style.width = `${progress}%`;
+            document.getElementById(
+                "progress-text"
+            ).innerText = `Loading comments... (${progress.toFixed(1)}%)`;
 
             if (comments.length >= targetCount) {
                 clearInterval(interval);
-                console.log(
-                    "✅ Finished loading comments. Scrolling back to top..."
-                );
-                window.scrollTo({ top: 0, behavior: "smooth" });
+                console.log("✅ Finished loading comments.");
                 resolve();
                 return;
             }
 
             if (comments.length === previousCount) {
                 retries++;
-                console.log(
-                    `⚠️ No new comments loaded. Retry ${retries}/${maxRetries}`
-                );
-
                 if (retries >= maxRetries) {
                     clearInterval(interval);
                     console.log("❌ No more comments to load.");
-                    window.scrollTo({ top: 0, behavior: "smooth" });
                     resolve();
                     return;
                 }
@@ -112,48 +193,67 @@ function injectSummaryBox(averageQuality, averageDifficulty) {
     )}/5`;
 }
 
-// **Modified Inject Sentiment Scores**
+// **Modified Inject Sentiment Scores (with Progress Bar)**
 async function injectSentimentScores() {
+    createOverlayModal();
+    isAnalysisCanceled = false;
+
     console.log("⏳ Loading comments...");
     await loadMoreComments(100);
 
-    let commentElements = Array.from(
-        document.querySelectorAll(
-            "#comments #sections #contents ytd-comment-thread-renderer #comment #body #main #expander #content #content-text"
-        )
-    );
+    if (isAnalysisCanceled) return removeOverlayModal();
 
-    if (!commentElements.length) {
-        console.log("❌ No comments found. Exiting...");
+    let commentElements = Array.from(
+        document.querySelectorAll("#content-text")
+    );
+    let comments = commentElements
+        .map((el) => el.innerText.trim())
+        .filter((text) => text.length > 0);
+
+    if (!comments.length) {
+        removeOverlayModal();
+        console.log("❌ No comments found.");
         return;
     }
 
-    let comments = getAllComments();
     console.log(`📝 Processing ${comments.length} comments...`);
-
-    if (!comments.length) return;
-
     const ratedComments = await getRatedComments(comments);
-    console.log("ratedComments", ratedComments);
+
+    if (isAnalysisCanceled) return removeOverlayModal();
 
     if (!ratedComments || ratedComments.length !== comments.length) {
         console.error("❌ Backend response size mismatch.");
+        removeOverlayModal();
         return;
     }
 
-    // **Calculate Averages**
+    // **Update Progress Bar**
+    function updateProgress(index, total) {
+        const progress = 90 + ((index + 1) / total) * 10; // Increase from 90% to 100%
+        document.getElementById(
+            "progress-bar-fill"
+        ).style.width = `${progress}%`;
+        document.getElementById(
+            "progress-text"
+        ).innerText = `Analyzing comments... (${progress.toFixed(1)}%)`;
+    }
+
     let totalQuality = 0;
     let totalDifficulty = 0;
 
-    ratedComments.forEach(({ quality, difficulty }) => {
+    ratedComments.forEach(({ quality, difficulty }, index) => {
+        if (isAnalysisCanceled) return removeOverlayModal();
+
         totalQuality += quality;
         totalDifficulty += difficulty;
+
+        updateProgress(index, ratedComments.length);
     });
 
     let averageQuality = totalQuality / ratedComments.length;
     let averageDifficulty = totalDifficulty / ratedComments.length;
 
-    // **Inject Summary Box**
+    // **Inject Summary**
     injectSummaryBox(averageQuality, averageDifficulty);
 
     // **Inject Ratings into Comments**
@@ -170,9 +270,8 @@ async function injectSentimentScores() {
                     margin-left: 10px; 
                     border-radius: 12px; 
                     font-size: 12px; 
-                    font-weight: bold; 
-                    display: inline-block;
-                ">
+                    font-weight: bold;
+                    display: inline-block;">
                     ⭐ Quality: ${quality} | 🎯 Difficulty: ${difficulty}
                 </span>
             `;
@@ -183,6 +282,7 @@ async function injectSentimentScores() {
     });
 
     console.log("✅ Sentiment scores injected successfully.");
+    removeOverlayModal();
 }
 
 // **Observe for New Comments (Handles Lazy Loading)**
@@ -200,7 +300,7 @@ function observeNewComments() {
     observer.observe(commentsContainer, { childList: true, subtree: true });
 }
 
-// **Create & Insert Start Button**
+// **Modify Start Button to Show Modal**
 function createStartButton() {
     let existingButton = document.getElementById("analyze-comments-btn");
 
@@ -222,18 +322,18 @@ function createStartButton() {
         `;
 
         button.onclick = () => {
-            button.disabled = true; // Prevent multiple clicks
+            button.disabled = true;
             button.style.opacity = "0.5";
             button.innerText = "Analyzing...";
             injectSentimentScores().then(() => {
                 button.innerText = "Analysis Complete";
+                button.disabled = false;
+                button.style.opacity = "1";
             });
         };
 
         const commentsContainer = document.querySelector("#comments");
-        if (commentsContainer) {
-            commentsContainer.prepend(button);
-        }
+        if (commentsContainer) commentsContainer.prepend(button);
     }
 }
 
