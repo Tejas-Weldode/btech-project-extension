@@ -203,12 +203,12 @@ function injectSummaryBox(averageQuality, averageDifficulty) {
 }
 
 // **Modified Inject Sentiment Scores (with Progress Bar)**
-async function injectSentimentScores() {
+async function injectSentimentScores(targetCount = 100) {
     createOverlayModal();
     isAnalysisCanceled = false;
 
-    console.log("⏳ Loading comments...");
-    await loadMoreComments(100);
+    console.log(`⏳ Loading ${targetCount} comments...`);
+    await loadMoreComments(targetCount);
 
     if (isAnalysisCanceled) return removeOverlayModal();
 
@@ -311,9 +311,39 @@ function observeNewComments() {
 
 // **Modify Start Button to Show Modal**
 function createStartButton() {
-    let existingButton = document.getElementById("analyze-comments-btn");
+    let existingContainer = document.getElementById("analyze-container");
 
-    if (!existingButton) {
+    if (!existingContainer) {
+        // Create a container for button and dropdown
+        const container = document.createElement("div");
+        container.id = "analyze-container";
+        container.style = `
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        `;
+
+        // Create dropdown for selecting comment count
+        const dropdown = document.createElement("select");
+        dropdown.id = "comment-count-dropdown";
+        dropdown.style = `
+            padding: 10px;
+            font-size: 14px;
+            border-radius: 8px;
+            cursor: pointer;
+        `;
+
+        // Add options
+        [100, 500, 1000].forEach((value) => {
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = `Analyze ${value} Comments`;
+            dropdown.appendChild(option);
+        });
+
+        // Create the analyze button
         const button = document.createElement("button");
         button.id = "analyze-comments-btn";
         button.innerText = "Analyze Comments";
@@ -326,23 +356,31 @@ function createStartButton() {
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            display: block;
-            margin: 10px auto;
         `;
 
-        button.onclick = () => {
+        button.onclick = async () => {
             button.disabled = true;
             button.style.opacity = "0.5";
             button.innerText = "Analyzing...";
-            injectSentimentScores().then(() => {
-                button.innerText = "Analysis Complete";
-                button.disabled = false;
-                button.style.opacity = "1";
-            });
+
+            const targetCount = parseInt(dropdown.value, 10); // Get selected value
+
+            await injectSentimentScores(targetCount); // Pass selected value
+
+            button.innerText = "Analysis Complete";
+            button.disabled = false;
+            button.style.opacity = "1";
         };
 
+        // Append elements
+        container.appendChild(dropdown);
+        container.appendChild(button);
+
+        // Insert container before comments section
         const commentsContainer = document.querySelector("#comments");
-        if (commentsContainer) commentsContainer.prepend(button);
+        if (commentsContainer) {
+            commentsContainer.prepend(container);
+        }
     }
 }
 
