@@ -200,8 +200,60 @@ function observeNewComments() {
     observer.observe(commentsContainer, { childList: true, subtree: true });
 }
 
-// **Run Everything After Page Load**
+// **Create & Insert Start Button**
+function createStartButton() {
+    let existingButton = document.getElementById("analyze-comments-btn");
+
+    if (!existingButton) {
+        const button = document.createElement("button");
+        button.id = "analyze-comments-btn";
+        button.innerText = "Analyze Comments";
+        button.style = `
+            background-color: gold;
+            color: black;
+            font-size: 14px;
+            font-weight: bold;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: block;
+            margin: 10px auto;
+        `;
+
+        button.onclick = () => {
+            button.disabled = true; // Prevent multiple clicks
+            button.style.opacity = "0.5";
+            button.innerText = "Analyzing...";
+            injectSentimentScores().then(() => {
+                button.innerText = "Analysis Complete";
+            });
+        };
+
+        const commentsContainer = document.querySelector("#comments");
+        if (commentsContainer) {
+            commentsContainer.prepend(button);
+        }
+    }
+}
+
+// **Wait for Comments Section to Load & Then Insert Button**
+function waitForCommentsSection() {
+    const observer = new MutationObserver((mutations, obs) => {
+        const commentsContainer = document.querySelector(
+            "#comments #sections #contents"
+        );
+        if (commentsContainer) {
+            console.log("✅ Comments section detected. Injecting button...");
+            createStartButton();
+            obs.disconnect(); // Stop observing once found
+        }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+}
+
+// **Run Only After Page Load & Wait for Comments Section**
 window.onload = () => {
-    injectSentimentScores();
-    observeNewComments();
+    waitForCommentsSection(); // Wait for comments to load before adding the button
 };
