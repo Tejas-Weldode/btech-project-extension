@@ -170,6 +170,32 @@ function getAllComments() {
         .filter((text) => text.length > 0);
 }
 
+// Function to Create & Download CSV
+function downloadCSV(commentsData) {
+    if (!commentsData || commentsData.length === 0) {
+        console.error("❌ No comments data to export.");
+        return;
+    }
+
+    // Prepare CSV content
+    let csvContent = "data:text/csv;charset=utf-8,Comment,Quality,Difficulty\n";
+    commentsData.forEach(({ comment, quality, difficulty }) => {
+        const escapedComment = comment.replace(/"/g, '""'); // Escape quotes
+        csvContent += `"${escapedComment}",${quality},${difficulty}\n`;
+    });
+
+    // Create a download link
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "comments_ratings.csv");
+    document.body.appendChild(link);
+
+    // Auto-trigger download
+    link.click();
+    document.body.removeChild(link);
+}
+
 // **Inject Summary Above Comments**
 function injectSummaryBox(averageQuality, averageDifficulty) {
     let existingBox = document.getElementById("sentiment-summary-box");
@@ -200,6 +226,36 @@ function injectSummaryBox(averageQuality, averageDifficulty) {
     )}/5 | 🎯 <strong>Average Difficulty:</strong> ${averageDifficulty.toFixed(
         2
     )}/5`;
+}
+
+// Function to Create & Insert CSV Download Button
+function createDownloadButton(commentsData) {
+    let existingButton = document.getElementById("download-csv-btn");
+
+    if (!existingButton) {
+        const button = document.createElement("button");
+        button.id = "download-csv-btn";
+        button.innerText = "Download CSV";
+        button.style = `
+            background-color: green;
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: block;
+            margin: 10px auto;
+        `;
+
+        button.onclick = () => downloadCSV(commentsData);
+
+        const container = document.getElementById("analyze-container");
+        if (container) {
+            container.appendChild(button);
+        }
+    }
 }
 
 // **Modified Inject Sentiment Scores (with Progress Bar)**
@@ -249,12 +305,19 @@ async function injectSentimentScores(targetCount = 100) {
 
     let totalQuality = 0;
     let totalDifficulty = 0;
+    let commentsData = [];
 
     ratedComments.forEach(({ quality, difficulty }, index) => {
         if (isAnalysisCanceled) return removeOverlayModal();
 
         totalQuality += quality;
         totalDifficulty += difficulty;
+
+        commentsData.push({
+            comment: comments[index],
+            quality,
+            difficulty,
+        });
 
         updateProgress(index, ratedComments.length);
     });
@@ -292,6 +355,9 @@ async function injectSentimentScores(targetCount = 100) {
 
     console.log("✅ Sentiment scores injected successfully.");
     removeOverlayModal();
+
+    // **Create CSV Download Button**
+    createDownloadButton(commentsData);
 }
 
 // **Observe for New Comments (Handles Lazy Loading)**
