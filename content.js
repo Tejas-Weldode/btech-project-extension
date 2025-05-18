@@ -163,11 +163,30 @@ async function loadMoreComments(targetCount = 100, scrollInterval = 2000) {
 function getAllComments() {
     return Array.from(
         document.querySelectorAll(
-            "#comments #sections #contents ytd-comment-thread-renderer #comment #body #main #expander #content #content-text"
+            "#comments #sections #contents ytd-comment-thread-renderer"
         )
     )
-        .map((comment) => comment.innerText.trim())
-        .filter((text) => text.length > 0);
+        .map((commentThread) => {
+            const commentElement = commentThread.querySelector("#content-text");
+            const usernameElement = commentThread.querySelector("#author-text");
+            const likesElement =
+                commentThread.querySelector("#vote-count-middle");
+            const dateElement = commentThread.querySelector(
+                "#published-time-text a"
+            );
+
+            return {
+                text: commentElement ? commentElement.innerText.trim() : "N/A",
+                username: usernameElement
+                    ? usernameElement.innerText.trim()
+                    : "Unknown",
+                likes: likesElement
+                    ? likesElement.innerText.trim() || "0"
+                    : "0",
+                date: dateElement ? dateElement.innerText.trim() : "Unknown",
+            };
+        })
+        .filter((comment) => comment.text.length > 0);
 }
 
 // Function to Create & Download CSV
@@ -178,11 +197,14 @@ function downloadCSV(commentsData) {
     }
 
     // Prepare CSV content
-    let csvContent = "data:text/csv;charset=utf-8,Comment,Quality,Difficulty\n";
-    commentsData.forEach(({ comment, quality, difficulty }) => {
-        const escapedComment = comment.replace(/"/g, '""'); // Escape quotes
-        csvContent += `"${escapedComment}",${quality},${difficulty}\n`;
-    });
+    let csvContent =
+        "data:text/csv;charset=utf-8,Username,Comment,Likes,Date,Quality,Difficulty\n";
+    commentsData.forEach(
+        ({ username, text, likes, date, quality, difficulty }) => {
+            const escapedComment = text.replace(/"/g, '""'); // Escape quotes
+            csvContent += `"${username}","${escapedComment}","${likes}","${date}","${quality}","${difficulty}"\n`;
+        }
+    );
 
     // Create a download link
     const encodedUri = encodeURI(csvContent);
@@ -271,9 +293,13 @@ async function injectSentimentScores(targetCount = 100) {
     let commentElements = Array.from(
         document.querySelectorAll("#content-text")
     );
-    let comments = commentElements
-        .map((el) => el.innerText.trim())
-        .filter((text) => text.length > 0);
+
+    // let comments = commentElements
+    //     .map((el) => el.innerText.trim())
+    //     .filter((text) => text.length > 0);
+
+    let comments = getAllComments();
+    console.log("comments", comments);
 
     if (!comments.length) {
         removeOverlayModal();
@@ -307,20 +333,25 @@ async function injectSentimentScores(targetCount = 100) {
     let totalDifficulty = 0;
     let commentsData = [];
 
-    ratedComments.forEach(({ quality, difficulty }, index) => {
-        if (isAnalysisCanceled) return removeOverlayModal();
+    ratedComments.forEach(
+        ({ username, text, likes, date, quality, difficulty }, index) => {
+            if (isAnalysisCanceled) return removeOverlayModal();
 
-        totalQuality += quality;
-        totalDifficulty += difficulty;
+            totalQuality += quality;
+            totalDifficulty += difficulty;
 
-        commentsData.push({
-            comment: comments[index],
-            quality,
-            difficulty,
-        });
+            commentsData.push({
+                username,
+                text,
+                likes,
+                date,
+                quality,
+                difficulty,
+            });
 
-        updateProgress(index, ratedComments.length);
-    });
+            updateProgress(index, ratedComments.length);
+        }
+    );
 
     let averageQuality = totalQuality / ratedComments.length;
     let averageDifficulty = totalDifficulty / ratedComments.length;
